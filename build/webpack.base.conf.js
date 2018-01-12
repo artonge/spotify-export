@@ -20,9 +20,8 @@ const createLintingRule = () => ({
 })
 
 module.exports = {
-  target: process.env.NODE_ENV === 'production'
-	? "electron-renderer"
-	: "web",
+  target: "electron-renderer",
+  // target: "web",
   context: path.resolve(__dirname, '../'),
   entry: {
     app: './src/index.js'

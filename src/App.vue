@@ -1,51 +1,58 @@
 <template>
-	<main>
-		<div id="playlists-container">
-			<div
-				class="playlist"
-				v-for="playlist in playlists"
-				:key="playlist.id"
-				@click="selectPlaylist(playlist)"
-			>
-				<ou-checkbox v-model="playlist.checked"/>
-				<ou-persona
-					:src="playlist.images[0].url"
-					:primaryText="playlist.name"
-					:secondaryText="Array.isArray(playlist.tracks) ? playlist.tracks.length.toString() : ''"
-				/>
-			</div>
-		</div>
-		<div id="tracks-container">
-			<div
-				class="track"
-				v-for="track in selectedPlaylist.tracks"
-				v-if="track.track !== undefined"
-			>
-				<ou-checkbox v-model="track.checked"/>
-				<ou-persona
-					size="tiny"
-					:type="track.status"
-					:primaryText="`${track.track.name} - ${track.track.artists[0].name}`"
-				/>
-			</div>
-		</div>
-		<footer id="bottom-bar">
-			<ou-button
+	<el-container id="global-container" direction="vertical">
+
+		<el-container id="content-container" direction="horizontal">
+
+			<el-aside width="300px" style="height: 100%;">
+				<div id="global-checker">
+					TOGGLE ALL <el-switch v-model="allCheck" @change="toggleAll()"/>
+				</div>
+				<div
+					class="playlist"
+					v-for="playlist in playlists"
+					:key="playlist.id"
+					@click="selectPlaylist(playlist)"
+				>
+					<img :src="playlist.images[0].url" width="40px"/>
+					<span class="playlist-name">{{playlist.name}}</span>
+					<el-switch v-model="playlist.checked" @change="togglePlaylist(playlist)"/>
+				</div>
+			</el-aside>
+
+			<el-main>
+				<div
+					class="track"
+					v-for="track in selectedPlaylist.tracks"
+					:key="track.track.id"
+				>
+					<el-switch v-model="track.checked" v-if="track.status === undefined"/>
+					<i class="el-icon-check" v-if="track.status === 'downloaded'"></i>
+					<i class="el-icon-loading" v-if="track.status === 'downloading'"></i>
+					<span class="track-name">{{track.track.name}} - {{track.track.artists[0].name}}</span>
+				</div>
+			</el-main>
+
+		</el-container>
+
+		<el-footer>
+			<el-button
 				type="primary"
-				click="startExport()"
+				icon="el-icon-download"
+				@click="startExport()"
 			>
 				Start export !
-			</ou-button>
-		</footer>
-	</main>
+			</el-button>
+		</el-footer>
+
+	</el-container>
 </template>
 
 <script>
 import Spotify from "spotify-web-api-js"
-// import { ipcRenderer } from "electron"
+import { ipcRenderer } from "electron"
 
 const s = new Spotify()
-const TOKEN = "BQAhfm06GcqjQWyDxkD3tTpocQJnLEwZ34NKrDmML02NdHowQ6w7F66KWh0E2_gEJ4P8NHNGUS3hSAMVHFWG_t69j7LzpP9-fzpWgP5qhmJxPX9L6shOU2FQv64zk5Tpid3zRTm0noOtQZ1Xz5mYz32C3CxV5STwG1KZ6HrDESRFrxwHq5ipDJ4u9JOu0FH36yiFtqEdfvDlJA"
+const TOKEN = "BQBUQnl45bpIpnL1mde1TMSdA1hBCER0Tg25XU-azvedc7_qiEuFU1eHI2JCWmYO9xbWAl3WUdxzL2AKZOslTHN9wKShZW9WRcfNwe9IRj27y2W5MHG8rPi1rA2PrqqxaoZor9iIHugcLPzsQJy6jNcZT9JewYgO6FyF0oeG3Hd0oFEOWOYm8mWmyfxXeQSryGUY7IdgFQOeDg"
 s.setAccessToken(TOKEN)
 
 export default {
@@ -54,50 +61,82 @@ export default {
 		return {
 			user: {},
 			playlists: [],
-			selectedPlaylist: {}
+			selectedPlaylist: {},
+			allCheck: true,
 		}
 	},
 	async created() {
 		this.user = await s.getMe()
 		this.playlists = (await s.getUserPlaylists()).items
 		for (let playlist of this.playlists) {
-			// playlist.checked = true
+			playlist.checked = true
 			let result = await s.getPlaylistTracks(this.user.id, playlist.id)
 			let tracks = result.items
 			while (result.next !== null) {
 				result = await s.getGeneric(result.next)
 				tracks.concat(result.items)
 			}
-			// playlist.tracks = tracks.map((track) => ({...track, checked: true}))
-			playlist.tracks = tracks
+			playlist.tracks = tracks.map((track) => ({...track, checked: true}))
+			this.$forceUpdate()
 		}
 	},
 	methods: {
 		selectPlaylist: function(playlist) {
 			this.selectedPlaylist = playlist
-		}
+		},
+		startExport: function() {
+			for (let playlist of this.playlists) {
+				for (let track of playlist.tracks) {
+					if (!track.checked) continue
+					const trackName = `${track.track.artists[0].name} - ${track.track.name}`
+					track.status = "downloading"
+					ipcRenderer.send("get-track", trackName)
+					ipcRenderer.once(trackName, () => {
+						track.status = "downloaded"
+						track.checked = false
+						this.$forceUpdate()
+					})
+				}
+			}
+			this.$forceUpdate()
+		},
+		togglePlaylist: function(playlist) {
+			playlist.tracks = playlist.tracks.map((track) => ({...track, checked: playlist.checked}))
+		},
+		toggleAll: function() {
+			for (let playlist of this.playlists) {
+				playlist.checked = this.allCheck
+				playlist.tracks = playlist.tracks.map((track) => ({...track, checked: this.allCheck}))
+			}
+		},
 	}
 }
 
 </script>
 
 <style global>
-main {
-	display: flex;
-	flex-wrap: wrap;
+
+#global-container {
 	height: 100%;
-	border: 1px solid black;
 }
 
-#playlists-container {
-	height: 90%;
-	flex-basis: 20%;
-	overflow: auto;
-	padding: 5px 0;
-	box-sizing: border-box;
+#content-container {
+	max-height: calc(100% - 60px);
+}
+
+#global-checker {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 50px;
+}
+
+#global-checker .el-switch {
+	margin-left: 10px;
 }
 
 .playlist {
+	width: 100%;
 	display: flex;
 	align-items: center;
 	width: 100%;
@@ -106,35 +145,37 @@ main {
 	box-sizing: border-box;
 }
 
-.ms-CheckBox {
-	margin-right: 5px;
+.playlist-name {
+	flex-grow: 1;
+	padding: 0 10px;
 }
 
-#tracks-container {
-	display: flex;
-	flex-direction: column;
-	flex-wrap: wrap;
-	flex-basis: 80%;
-	height: 90%;
-	overflow: auto;
-}
 
 .track {
 	display: flex;
 	align-items: center;
-	padding-left: 10px;
+	padding: 2px 0;
 }
 
-#bottom-bar {
+.track-name {
+	padding-left: 15px;
+}
+
+.track i, .track .el-switch {
+	width: 40px;
+	text-align: center;
+}
+
+footer {
 	display: flex;
 	justify-content: flex-end;
-	align-items: flex-end;
-	width: 100%;
-	height: 10%;
-	background-color: #f8f8f8;
+	align-content: center;
+	align-items: center;
+	height: 60px;
+	background: grey;
 }
 
 button {
-	height: 100% !important;
+	width: 100%;
 }
 </style>

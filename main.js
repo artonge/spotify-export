@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain } = require("electron")
 const path = require("path")
 const url = require("url")
 const fs = require("fs")
-const execSync = require("child_process").execSync
+const exec = require("child_process").exec
 
 
 // Keep a global reference of the window object, if you don"t, the window will
@@ -58,16 +58,13 @@ app.on("activate", () => {
 // code. You can also put them in separate files and require them here.
 
 
-ipcMain.on("playlists", (event, playlists) => {
-
-	for (let playlist of playlists) {
-		console.log(playlist.name)
-		for (let track of playlist.tracks) {
-			if (track.track !== undefined) {
-				fs.appendFileSync(`out/${playlist.name}.txt`, `${track.track.artists[0].name} - ${track.track.name}\n`)
-			}
-		}
-		execSync(`instantmusic -qf out/${playlist.name}.txt`)
-	}
-
+ipcMain.on("get-track", (event, trackName) => {
+	exec(`
+		mkdir "out/${trackName}"
+		cd "out/${trackName}"
+		instantmusic -qs "${trackName}"
+	`, (error, stdout, stderr) => {
+		console.log(error, "\n", stdout, "\n", stderr)
+		event.sender.send(trackName)
+	})
 })
