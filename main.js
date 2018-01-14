@@ -9,6 +9,9 @@ const search = require('youtube-search')
 const ytdl = require('ytdl-core')
 const ffmpeg = require('fluent-ffmpeg')
 const mkdirp = require('mkdirp')
+const Queue = require('promise-queue')
+
+const queue = new Queue(5, Infinity)
 
 // Keep a global reference of the window object, if you don"t, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -63,61 +66,84 @@ app.on("activate", () => {
 // code. You can also put them in separate files and require them here.
 
 
+let QUEUE = []
+let activesTasks = 0
 ipcMain.on("get-track", (event, track) => {
-	const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
-	const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
-	const tmpFilePath = `${tmpDir}/sound.mp3`
-	const finalFilePath = `${finalDir}/${track.track.name}.mp3`
-
-	search(`${track.track.artists[0].name} ${track.track.name}`, { key: "AIzaSyDmw45jFoLeQ0ycBgUyO7zVEDPgys0ZJmM" }, function(err, results) {
-		if (err) {
-			console.error(err)
-			return
-		}
-
-		const dlStream = ytdl(results[0].link, { filter: "audioonly" })
-			.on('progress', function(chunkSize, downloadedSize, totalSize) {
-				event.sender.send(`${track.track.id}-response`, Math.round((downloadedSize/totalSize)*100))
-			})
-
-		ffmpeg(dlStream)
-			.noVideo()
-			.audioCodec("libmp3lame")
-			.audioQuality(0)
-			.save(tmpFilePath)
-			.on('error', (err) => console.log(err))
-			.on('end', () => {
-				request
-					.get(track.track.album.images[track.track.album.images.length-1].url)
-					.on('end', () => {
-						ffmetadata.write(
-							tmpFilePath,
-							{
-								title: track.track.name,
-								artist: track.track.artists[0].name,
-								album: track.track.album.name,
-								track: track.track.track_number,
-								disc: track.track.disc_number,
-							},
-							{ attachments: [`${tmpDir}/image.jpeg`] },
-							(err) => {
-								if (err) {
-									console.log(err)
-									return
-								}
-								mkdirp.sync(finalDir)
-								fs.createReadStream(tmpFilePath)
-									.pipe(fs.createWriteStream(finalFilePath))
-									.on('finish', () => {
-										fs.unlinkSync(tmpFilePath)
-										fs.unlinkSync(`${tmpDir}/image.jpeg`)
-										fs.rmdirSync(tmpDir)
-										event.sender.send(track.track.id)
-									})
-							}
-						)
-					})
-					.pipe(fs.createWriteStream(`${tmpDir}/image.jpeg`))
-			})
-	})
+	QUEUE.push([event, track])
+	runTask()
 })
+
+async function runTask() {
+	if (QUEUE.length > 0 && activesTasks < 5) {
+		activesTasks++
+		const [event, track] = QUEUE.pop()
+		await getTrack(event, track)
+		activesTasks--
+		runTask()
+	}
+}
+
+
+function getTrack(event, track) {
+	return new Promise((resolve, reject) => {
+		console.log("start", track.track.name)
+		const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
+		const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
+		const tmpFilePath = `${tmpDir}/sound.mp3`
+		const finalFilePath = `${finalDir}/${track.track.name}.mp3`
+
+		search(`${track.track.artists[0].name} ${track.track.name}`, { key: "AIzaSyDmw45jFoLeQ0ycBgUyO7zVEDPgys0ZJmM", type: "video" }, function(err, results) {
+			if (results.length === 0 || err) {
+				event.sender.send(track.track.id)
+				console.error(err)
+				return
+			}
+			const dlStream = ytdl(results[0].link, { filter: "audioonly" })
+				.on('progress', function(chunkSize, downloadedSize, totalSize) {
+					event.sender.send(`${track.track.id}-response`, Math.round((downloadedSize/totalSize)*100))
+				})
+
+			ffmpeg(dlStream)
+				.noVideo()
+				.audioCodec("libmp3lame")
+				.audioQuality(0)
+				.save(tmpFilePath)
+				.on('error', (err) => console.log(err))
+				.on('end', () => {
+					request
+						.get(track.track.album.images[track.track.album.images.length-1].url)
+						.on('end', () => {
+							ffmetadata.write(
+								tmpFilePath,
+								{
+									title: track.track.name,
+									artist: track.track.artists[0].name,
+									album: track.track.album.name,
+									track: track.track.track_number,
+									disc: track.track.disc_number,
+								},
+								{ attachments: [`${tmpDir}/image.jpeg`] },
+								(err) => {
+									if (err) {
+										event.sender.send(track.track.id)
+										console.log(err)
+										return
+									}
+									mkdirp.sync(finalDir)
+									fs.createReadStream(tmpFilePath)
+										.pipe(fs.createWriteStream(finalFilePath))
+										.on('finish', () => {
+											fs.unlinkSync(tmpFilePath)
+											fs.unlinkSync(`${tmpDir}/image.jpeg`)
+											fs.rmdirSync(tmpDir)
+											event.sender.send(track.track.id)
+											resolve()
+										})
+								}
+							)
+						})
+						.pipe(fs.createWriteStream(`${tmpDir}/image.jpeg`))
+				})
+		})
+	})
+}

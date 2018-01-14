@@ -13,9 +13,12 @@
 					:key="playlist.id"
 					@click="selectPlaylist(playlist)"
 				>
-					<img :src="playlist.images[0].url" width="40px"/>
-					<span class="playlist-name">{{playlist.name}}</span>
-					<el-switch v-model="playlist.checked" @change="togglePlaylist(playlist)"/>
+					<div class="playlist-top-container">
+						<img :src="playlist.images[0].url" width="40px"/>
+						<span class="playlist-name">{{playlist.name}}</span>
+						<el-switch v-model="playlist.checked" @change="togglePlaylist(playlist)"/>
+					</div>
+					<el-progress :percentage="playlist.progress"></el-progress>
 				</div>
 			</el-aside>
 
@@ -55,7 +58,7 @@ import Spotify from "spotify-web-api-js"
 import { ipcRenderer } from "electron"
 
 const s = new Spotify()
-const TOKEN = "BQBw5APShgUFBOSyXH_bezU4ny8YXWvHhT3B0dHjqNMix9ykHTWkSytWPytw1m8zkPbWdRASJo9ET9W1xP6fGjnEPz0F40NTMe7rHUPRBEdXVuKOu9z6AArzGcVPxW8iyN1Xm0wje_zi3K6tqlh_9fdamhz8cxhv6dLgLcE_usikoONdyzjce8p0mBBC4iz6E0_F5yRQ7O7HIA"
+const TOKEN = "BQB8a36f3yNiD0gRdiZz8VmwejLDPrzFmIGWcomcC9w_xe1WBaEeGfph49rFfJhl0K6Ny0lGSlpa3eJ-RKnbouxBgYU6kBBJww2IWg6-ciBUT-EgAHquS8EtA7gvG9U7iHL1KjPjH0bsUnNZgv3_EpkL08YEGvA0pGXfYCu8EcREc9UBMuPiqn_OjK4s8j8MJ0r8v5H_DdLybQ"
 s.setAccessToken(TOKEN)
 
 
@@ -98,6 +101,7 @@ export default {
 					ipcRenderer.send("get-track", track)
 					ipcRenderer.on(`${track.track.id}-response`, (event, progress) => {
 						track.progress = progress
+						this.computePlaylistProgress(playlist)
 						this.$forceUpdate()
 					})
 					ipcRenderer.once(track.track.id, () => {
@@ -107,6 +111,12 @@ export default {
 				}
 			}
 			this.$forceUpdate()
+		},
+		computePlaylistProgress(playlist) {
+			playlist.progress = Math.round(playlist.tracks.reduce(
+				((total, track) => total + (track.progress || 0)),
+				0
+			) / playlist.tracks.length)
 		},
 		togglePlaylist: function(playlist) {
 			playlist.tracks = playlist.tracks.map((track) => ({...track, checked: playlist.checked}))
@@ -147,11 +157,11 @@ export default {
 .playlist {
 	width: 100%;
 	display: flex;
-	align-items: center;
+	flex-direction: column;
 	width: 100%;
 	padding: 5px 15px;
-	cursor: pointer;
 	box-sizing: border-box;
+	cursor: pointer;
 }
 
 .playlist-name {
@@ -159,6 +169,11 @@ export default {
 	padding: 0 10px;
 }
 
+.playlist-top-container {
+	display: flex;
+	align-items: center;
+	width: 100%;
+}
 
 .track {
 	display: flex;
