@@ -89,7 +89,7 @@ ipcMain.on("get-track", (event, track) => {
 			.on('end', () => {
 				request
 					.get(track.track.album.images[track.track.album.images.length-1].url)
-					.on('response', (response) => {
+					.on('end', () => {
 						ffmetadata.write(
 							tmpFilePath,
 							{
