@@ -15,7 +15,7 @@
 				>
 					<div class="playlist-top-container">
 						<img :src="playlist.images[0].url" width="40px"/>
-						<span class="playlist-name">{{playlist.name}}</span>
+						<span class="playlist-name">{{playlist.name}} ({{playlist.tracks.length}})</span>
 						<el-switch v-model="playlist.checked" @change="togglePlaylist(playlist)"/>
 					</div>
 					<el-progress :percentage="playlist.progress"></el-progress>
@@ -58,7 +58,7 @@ import Spotify from "spotify-web-api-js"
 import { ipcRenderer } from "electron"
 
 const s = new Spotify()
-const TOKEN = "BQB8a36f3yNiD0gRdiZz8VmwejLDPrzFmIGWcomcC9w_xe1WBaEeGfph49rFfJhl0K6Ny0lGSlpa3eJ-RKnbouxBgYU6kBBJww2IWg6-ciBUT-EgAHquS8EtA7gvG9U7iHL1KjPjH0bsUnNZgv3_EpkL08YEGvA0pGXfYCu8EcREc9UBMuPiqn_OjK4s8j8MJ0r8v5H_DdLybQ"
+const TOKEN = "BQAD-p0jZoshqZOSTH2QULIPJBjmI6oyxw90OkYvm5e8qn0HG5ehY1V-AbT7uwERydOAuERtuBejeL0_Nl6GHg76AShu7391o-snnjS17nRe_AGNYsDtSmo5A0DgcO-K-rJWa8QFSM5dEPajCNbF4tB0Y7gAckSdfQPjTCnhaEu_p9fmUxrC_JuVCmfSdk1bX11zRLD5rWIrbA"
 s.setAccessToken(TOKEN)
 
 
@@ -75,19 +75,20 @@ export default {
 	async created() {
 		this.user = await s.getMe()
 		this.playlists = (await s.getUserPlaylists()).items
-		for (let playlist of this.playlists) {
+		this.playlists.forEach(this.loadPlaylist)
+	},
+	methods: {
+		async loadPlaylist(playlist) {
 			playlist.checked = this.allCheck
 			let result = await s.getPlaylistTracks(this.user.id, playlist.id)
 			let tracks = result.items
 			while (result.next !== null) {
 				result = await s.getGeneric(result.next)
-				tracks.concat(result.items)
+				tracks = tracks.concat(result.items)
 			}
 			playlist.tracks = tracks.map((track) => ({...track, checked: this.allCheck}))
 			this.$forceUpdate()
-		}
-	},
-	methods: {
+		},
 		selectPlaylist: function(playlist) {
 			this.selectedPlaylist = playlist
 		},

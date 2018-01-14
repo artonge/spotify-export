@@ -76,7 +76,7 @@ ipcMain.on("get-track", (event, track) => {
 async function runTask() {
 	if (QUEUE.length > 0 && activesTasks < 5) {
 		activesTasks++
-		const [event, track] = QUEUE.pop()
+		const [event, track] = QUEUE.shift()
 		await getTrack(event, track)
 		activesTasks--
 		runTask()
@@ -86,16 +86,22 @@ async function runTask() {
 
 function getTrack(event, track) {
 	return new Promise((resolve, reject) => {
-		console.log("start", track.track.name)
 		const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
 		const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
 		const tmpFilePath = `${tmpDir}/sound.mp3`
 		const finalFilePath = `${finalDir}/${track.track.name}.mp3`
+		if (fs.existsSync(finalFilePath)) {
+			event.sender.send(track.track.id)
+			event.sender.send(`${track.track.id}-response`, 100)
+			resolve()
+			return
+		}
 
 		search(`${track.track.artists[0].name} ${track.track.name}`, { key: "AIzaSyDmw45jFoLeQ0ycBgUyO7zVEDPgys0ZJmM", type: "video" }, function(err, results) {
 			if (results.length === 0 || err) {
 				event.sender.send(track.track.id)
 				console.error(err)
+				resolve()
 				return
 			}
 			const dlStream = ytdl(results[0].link, { filter: "audioonly" })
@@ -127,6 +133,7 @@ function getTrack(event, track) {
 									if (err) {
 										event.sender.send(track.track.id)
 										console.log(err)
+										resolve()
 										return
 									}
 									mkdirp.sync(finalDir)
