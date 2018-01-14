@@ -25,10 +25,13 @@
 					v-for="track in selectedPlaylist.tracks"
 					:key="track.track.id"
 				>
-					<el-switch v-model="track.checked" v-if="track.status === undefined"/>
-					<i class="el-icon-check" v-if="track.status === 'downloaded'"></i>
-					<i class="el-icon-loading" v-if="track.status === 'downloading'"></i>
-					<span class="track-name">{{track.track.name}} - {{track.track.artists[0].name}}</span>
+					<div class="track-top-container">
+						<el-switch v-model="track.checked" v-if="track.status === undefined"/>
+						<i class="el-icon-check" v-if="track.status === 'downloaded'"></i>
+						<i class="el-icon-loading" v-if="track.status === 'downloading'"></i>
+						<span class="track-name">{{track.track.name}} - {{track.track.artists[0].name}}</span>
+					</div>
+					<el-progress :percentage="track.progress"></el-progress>
 				</div>
 			</el-main>
 
@@ -52,7 +55,7 @@ import Spotify from "spotify-web-api-js"
 import { ipcRenderer } from "electron"
 
 const s = new Spotify()
-const TOKEN = "BQDpHhZwsEwWcr8pFV18rvX2jRVT5fXboaMxaiF6L0EMo9OgprtwdEDQoeCOMTvHmBAuLjhVrjhYDpdMJ7yWUMBh9OgNm_FKIGCE3iltNeGa6oIBwD2_kPKXlhA2_aGi7fMANAVmPUq1VV0IR8X1myz9g5KK5GEwSxkQslZHjGoEbSUXZpdp4Lp1VKwuY0yYje4zPybDbbHlXw"
+const TOKEN = "BQBw5APShgUFBOSyXH_bezU4ny8YXWvHhT3B0dHjqNMix9ykHTWkSytWPytw1m8zkPbWdRASJo9ET9W1xP6fGjnEPz0F40NTMe7rHUPRBEdXVuKOu9z6AArzGcVPxW8iyN1Xm0wje_zi3K6tqlh_9fdamhz8cxhv6dLgLcE_usikoONdyzjce8p0mBBC4iz6E0_F5yRQ7O7HIA"
 s.setAccessToken(TOKEN)
 
 
@@ -91,10 +94,14 @@ export default {
 				for (let track of playlist.tracks) {
 					if (!track.checked) continue
 					track.status = "downloading"
+					track.checked = false
 					ipcRenderer.send("get-track", track)
+					ipcRenderer.on(`${track.track.id}-response`, (event, progress) => {
+						track.progress = progress
+						this.$forceUpdate()
+					})
 					ipcRenderer.once(track.track.id, () => {
 						track.status = "downloaded"
-						track.checked = false
 						this.$forceUpdate()
 					})
 				}
@@ -155,7 +162,7 @@ export default {
 
 .track {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
 	padding: 2px 0;
 }
 
@@ -166,6 +173,11 @@ export default {
 .track i, .track .el-switch {
 	width: 40px;
 	text-align: center;
+}
+
+.track-top-container {
+	display: flex;
+	align-items: center;
 }
 
 footer {
