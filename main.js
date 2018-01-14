@@ -2,8 +2,12 @@ const { app, BrowserWindow, ipcMain } = require("electron")
 const path = require("path")
 const url = require("url")
 const fs = require("fs")
-const exec = require("child_process").exec
-
+const os = require("os")
+const { spawn}  = require("child_process")
+const request = require('request')
+const ffmetadata = require("ffmetadata")
+const search = require('youtube-search')
+const ytdl = require('ytdl-core')
 
 // Keep a global reference of the window object, if you don"t, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -58,13 +62,58 @@ app.on("activate", () => {
 // code. You can also put them in separate files and require them here.
 
 
-ipcMain.on("get-track", (event, trackName) => {
-	exec(`
-		mkdir "out/${trackName}"
-		cd "out/${trackName}"
-		instantmusic -qs "${trackName}"
-	`, (error, stdout, stderr) => {
-		console.log(error, "\n", stdout, "\n", stderr)
-		event.sender.send(trackName)
+ipcMain.on("get-track", (event, track) => {
+	const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
+	const finalDir = `out/${track.track.artists[0].name}`
+	let ext = "mp3"
+	search(`${track.track.artists[0].name} ${track.track.name}`, { key: "AIzaSyDmw45jFoLeQ0ycBgUyO7zVEDPgys0ZJmM" }, function(err, results) {
+		if (err) return console.log(err)
+		ytdl(results[0].link, { filter: (format) => format.audioEncoding === "aac" })
+			.on('info', (info, format) => {
+				ext = format.container
+			})
+			.on('finish', (chunkLength, downloaded, totalLength) => {
+				// if (downloaded !== totalLength) return
+				// console.log(`${downloaded}/${totalLength} (+${chunkLength})`)
+
+				fs.createReadStream(`${tmpDir}/sond.mp4`)
+					.pipe(fs.createWriteStream(`${tmpDir}/sond.${ext}`))
+					.on('finish', () => {
+						if (ext !== "mp4") fs.unlinkSync(`${tmpDir}/sond.mp4`)
+						const tmpFileName = fs.readdirSync(tmpDir)[0]
+						const tmpFilePath = `${tmpDir}/${tmpFileName}`
+						const finalFilePath = `${finalDir}/${track.track.name}${path.extname(tmpFileName)}`
+
+						request
+							.get(track.track.album.images[track.track.album.images.length-1].url)
+							.on('response', function(response) {
+								ffmetadata.write(
+									tmpFilePath,
+									{
+										title: track.track.name,
+										artist: track.track.artists[0].name,
+										album: track.track.album.name,
+										track: track.track.track_number,
+										disc: track.track.disc_number,
+									},
+									{ attachments: [`${tmpDir}/image.png`] },
+									(err) => {
+										if (err) console.error(err)
+										if (!fs.existsSync(finalDir)) fs.mkdirSync(finalDir)
+										fs.createReadStream(tmpFilePath)
+										.pipe(fs.createWriteStream(finalFilePath))
+										.on('finish', () => {
+											fs.unlinkSync(tmpFilePath)
+											fs.unlinkSync(`${tmpDir}/image.png`)
+										})
+
+										event.sender.send(track.track.id)
+									}
+								)
+							})
+							.pipe(fs.createWriteStream(`${tmpDir}/image.png`))
+					})
+			})
+			.pipe(fs.createWriteStream(`${tmpDir}/sond.mp4`))
 	})
 })

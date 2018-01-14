@@ -52,8 +52,9 @@ import Spotify from "spotify-web-api-js"
 import { ipcRenderer } from "electron"
 
 const s = new Spotify()
-const TOKEN = "BQBUQnl45bpIpnL1mde1TMSdA1hBCER0Tg25XU-azvedc7_qiEuFU1eHI2JCWmYO9xbWAl3WUdxzL2AKZOslTHN9wKShZW9WRcfNwe9IRj27y2W5MHG8rPi1rA2PrqqxaoZor9iIHugcLPzsQJy6jNcZT9JewYgO6FyF0oeG3Hd0oFEOWOYm8mWmyfxXeQSryGUY7IdgFQOeDg"
+const TOKEN = "BQDpHhZwsEwWcr8pFV18rvX2jRVT5fXboaMxaiF6L0EMo9OgprtwdEDQoeCOMTvHmBAuLjhVrjhYDpdMJ7yWUMBh9OgNm_FKIGCE3iltNeGa6oIBwD2_kPKXlhA2_aGi7fMANAVmPUq1VV0IR8X1myz9g5KK5GEwSxkQslZHjGoEbSUXZpdp4Lp1VKwuY0yYje4zPybDbbHlXw"
 s.setAccessToken(TOKEN)
+
 
 export default {
 	name: "app",
@@ -69,14 +70,14 @@ export default {
 		this.user = await s.getMe()
 		this.playlists = (await s.getUserPlaylists()).items
 		for (let playlist of this.playlists) {
-			playlist.checked = true
+			playlist.checked = this.allCheck
 			let result = await s.getPlaylistTracks(this.user.id, playlist.id)
 			let tracks = result.items
 			while (result.next !== null) {
 				result = await s.getGeneric(result.next)
 				tracks.concat(result.items)
 			}
-			playlist.tracks = tracks.map((track) => ({...track, checked: true}))
+			playlist.tracks = tracks.map((track) => ({...track, checked: this.allCheck}))
 			this.$forceUpdate()
 		}
 	},
@@ -86,12 +87,12 @@ export default {
 		},
 		startExport: function() {
 			for (let playlist of this.playlists) {
+				if (!Array.isArray(playlist.tracks)) continue
 				for (let track of playlist.tracks) {
 					if (!track.checked) continue
-					const trackName = `${track.track.artists[0].name} - ${track.track.name}`
 					track.status = "downloading"
-					ipcRenderer.send("get-track", trackName)
-					ipcRenderer.once(trackName, () => {
+					ipcRenderer.send("get-track", track)
+					ipcRenderer.once(track.track.id, () => {
 						track.status = "downloaded"
 						track.checked = false
 						this.$forceUpdate()
@@ -106,6 +107,7 @@ export default {
 		toggleAll: function() {
 			for (let playlist of this.playlists) {
 				playlist.checked = this.allCheck
+				if (!Array.isArray(playlist.tracks)) continue
 				playlist.tracks = playlist.tracks.map((track) => ({...track, checked: this.allCheck}))
 			}
 		},
