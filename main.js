@@ -3,13 +3,12 @@ const path = require("path")
 const url = require("url")
 const fs = require("fs")
 const os = require("os")
-const { spawn}  = require("child_process")
 const request = require('request')
 const ffmetadata = require("ffmetadata")
 const search = require('youtube-search')
 const ytdl = require('ytdl-core')
-const youtubedl = require('youtube-dl')
 const ffmpeg = require('fluent-ffmpeg')
+const mkdirp = require('mkdirp')
 
 // Keep a global reference of the window object, if you don"t, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -66,7 +65,7 @@ app.on("activate", () => {
 
 ipcMain.on("get-track", (event, track) => {
 	const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
-	const finalDir = `out/${track.track.artists[0].name}`
+	const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
 	const tmpFilePath = `${tmpDir}/sound.mp3`
 	const finalFilePath = `${finalDir}/${track.track.name}.mp3`
 
@@ -88,7 +87,6 @@ ipcMain.on("get-track", (event, track) => {
 			.save(tmpFilePath)
 			.on('error', (err) => console.log(err))
 			.on('end', () => {
-				console.log("Getting image")
 				request
 					.get(track.track.album.images[track.track.album.images.length-1].url)
 					.on('response', (response) => {
@@ -107,7 +105,7 @@ ipcMain.on("get-track", (event, track) => {
 									console.log(err)
 									return
 								}
-								if (!fs.existsSync(finalDir)) fs.mkdirSync(finalDir)
+								mkdirp.sync(finalDir)
 								fs.createReadStream(tmpFilePath)
 									.pipe(fs.createWriteStream(finalFilePath))
 									.on('finish', () => {
