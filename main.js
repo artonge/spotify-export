@@ -68,89 +68,159 @@ app.on("activate", () => {
 
 let QUEUE = []
 let activesTasks = 0
-ipcMain.on("get-track", (event, track) => {
-	QUEUE.push([event, track])
+ipcMain.on("get-track", (event, track, playlist) => {
+	QUEUE.push([event, track, playlist])
 	runTask()
 })
 
 async function runTask() {
-	if (QUEUE.length > 0 && activesTasks < 5) {
+	if (QUEUE.length > 0 && activesTasks < 10) {
 		activesTasks++
-		const [event, track] = QUEUE.shift()
-		await getTrack(event, track)
+		const [event, track, playlist] = QUEUE.shift()
+		try {
+			await getTrack(event, track, playlist)
+			event.sender.send("track-info", track, playlist, "done")
+		} catch (e) {
+			console.error("Error", track.track.name, e)
+			event.sender.send("track-info", track, playlist, "error")
+		}
 		activesTasks--
 		runTask()
 	}
 }
 
 
-function getTrack(event, track) {
-	return new Promise((resolve, reject) => {
-		const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
-		const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
-		const tmpFilePath = `${tmpDir}/sound.mp3`
-		const finalFilePath = `${finalDir}/${track.track.name}.mp3`
-		if (fs.existsSync(finalFilePath)) {
-			event.sender.send(track.track.id)
-			event.sender.send(`${track.track.id}-response`, 100)
-			resolve()
-			return
-		}
+function getTrack(event, track, playlist) {
+	return new Promise(async (resolve, reject) => {
+		try {
+			const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
+			const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
 
-		search(`${track.track.artists[0].name} ${track.track.name}`, { key: "AIzaSyDmw45jFoLeQ0ycBgUyO7zVEDPgys0ZJmM", type: "video" }, function(err, results) {
-			if (results.length === 0 || err) {
-				event.sender.send(track.track.id)
-				console.error(err)
+			// Check if song is allready downloaded
+			if (fs.existsSync(`${finalDir}/${track.track.name}.mp3`)) {
+				event.sender.send("track-info", track, playlist, "progress", 100)
 				resolve()
 				return
 			}
-			const dlStream = ytdl(results[0].link, { filter: "audioonly" })
-				.on('progress', function(chunkSize, downloadedSize, totalSize) {
-					event.sender.send(`${track.track.id}-response`, Math.round((downloadedSize/totalSize)*100))
-				})
 
-			ffmpeg(dlStream)
-				.noVideo()
-				.audioCodec("libmp3lame")
-				.audioQuality(0)
-				.save(tmpFilePath)
-				.on('error', (err) => console.log(err))
-				.on('end', () => {
-					request
-						.get(track.track.album.images[track.track.album.images.length-1].url)
-						.on('end', () => {
-							ffmetadata.write(
-								tmpFilePath,
-								{
-									title: track.track.name,
-									artist: track.track.artists[0].name,
-									album: track.track.album.name,
-									track: track.track.track_number,
-									disc: track.track.disc_number,
-								},
-								{ attachments: [`${tmpDir}/image.jpeg`] },
-								(err) => {
-									if (err) {
-										event.sender.send(track.track.id)
-										console.log(err)
-										resolve()
-										return
-									}
-									mkdirp.sync(finalDir)
-									fs.createReadStream(tmpFilePath)
-										.pipe(fs.createWriteStream(finalFilePath))
-										.on('finish', () => {
-											fs.unlinkSync(tmpFilePath)
-											fs.unlinkSync(`${tmpDir}/image.jpeg`)
-											fs.rmdirSync(tmpDir)
-											event.sender.send(track.track.id)
-											resolve()
-										})
-								}
-							)
-						})
-						.pipe(fs.createWriteStream(`${tmpDir}/image.jpeg`))
-				})
-		})
+			// Get possible song from youtube search
+			const songList = await getSongList(track)
+
+			// Download the first result
+			await downloadSong(songList[0].link, tmpDir, (chunkSize, downloadedSize, totalSize) => {
+				event.sender.send(
+					"track-info", track, playlist, "progress",
+					Math.round((downloadedSize/totalSize)*100)
+				)
+			})
+
+			// Download the album cover image from spotify
+			await downloadImage(track, tmpDir)
+
+			// Write meta with info from spotify and the image
+			await writeMeta(track, tmpDir)
+
+			// Copy the song in the final directory
+			await copySong(track, tmpDir)
+
+			// Clear the tmp dir
+			cleanTmpDir(tmpDir)
+
+			resolve()
+		} catch (e) {
+			reject(e)
+		}
 	})
+}
+
+
+function downloadImage(track, tmpDir) {
+	return new Promise((resolve, reject) => {
+		if (track.track.album.images.length === 0) {
+			reject("No album image")
+		}
+
+		request
+			.get(track.track.album.images[track.track.album.images.length-1].url)
+			.on('end', resolve)
+			.pipe(fs.createWriteStream(`${tmpDir}/image.jpeg`))
+	})
+}
+
+function downloadSong(url, tmpDir, progressCb) {
+	return new Promise((resolve, reject) => {
+		const videoStream = ytdl(url, { filter: "audioonly" })
+			.on('progress', progressCb)
+
+		ffmpeg(videoStream)
+			.noVideo()
+			.audioCodec("libmp3lame")
+			.audioQuality(0)
+			.save(`${tmpDir}/sound.mp3`)
+			.on('error', (err) => {
+				console.trace("ffmpeg error: ", track.track.name, err)
+				reject("ffmpeg error: " + err)
+			})
+			.on('end', resolve)
+	})
+}
+
+function getSongList(track) {
+	return new Promise((resolve, reject) => {
+		search(
+			`${track.track.artists[0].name} ${track.track.name}`,
+			{ key: "AIzaSyDmw45jFoLeQ0ycBgUyO7zVEDPgys0ZJmM", type: "video" },
+			(err, results) => {
+				if (err || results.length === 0) {
+					console.trace("search error: ", track.track.name, err)
+					reject("search error: " + err)
+					return
+				}
+
+				resolve(results)
+			}
+		)
+	})
+}
+
+function writeMeta(track, tmpDir) {
+	return new Promise((resolve, reject) => {
+		ffmetadata.write(
+			`${tmpDir}/sound.mp3`,
+			{
+				title: track.track.name,
+				artist: track.track.artists[0].name,
+				album: track.track.album.name,
+				track: track.track.track_number,
+				disc: track.track.disc_number,
+			},
+			{ attachments: [`${tmpDir}/image.jpeg`] },
+			(err) => {
+				if (err) {
+					console.trace("ffmetadata error: ", track.track.name, err)
+					reject()
+					return
+				}
+				resolve()
+			}
+		)
+	})
+}
+
+function copySong(track, tmpDir) {
+	const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
+
+	return new Promise((resolve, reject) => {
+		mkdirp.sync(finalDir)
+		fs.createReadStream(`${tmpDir}/sound.mp3`)
+			.pipe(fs.createWriteStream(`${finalDir}/${track.track.name}.mp3`))
+			.on('finish', resolve)
+			.on('error', reject)
+	})
+}
+
+function cleanTmpDir(tmpDir) {
+	fs.unlinkSync(`${tmpDir}/sound.mp3`)
+	fs.unlinkSync(`${tmpDir}/image.jpeg`)
+	fs.rmdirSync(tmpDir)
 }
