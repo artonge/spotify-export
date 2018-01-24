@@ -74,7 +74,7 @@ ipcMain.on("get-track", (event, track, playlist) => {
 })
 
 async function runTask() {
-	if (QUEUE.length > 0 && activesTasks < 10) {
+	if (QUEUE.length > 0 && activesTasks < 7) {
 		activesTasks++
 		const [event, track, playlist] = QUEUE.shift()
 		try {
@@ -158,7 +158,6 @@ function downloadSong(url, tmpDir, progressCb) {
 			.audioQuality(0)
 			.save(`${tmpDir}/sound.mp3`)
 			.on('error', (err) => {
-				console.trace("ffmpeg error: ", track.track.name, err)
 				reject("ffmpeg error: " + err)
 			})
 			.on('end', resolve)
@@ -172,7 +171,6 @@ function getSongList(track) {
 			{ key: "AIzaSyDmw45jFoLeQ0ycBgUyO7zVEDPgys0ZJmM", type: "video" },
 			(err, results) => {
 				if (err || results.length === 0) {
-					console.trace("search error: ", track.track.name, err)
 					reject("search error: " + err)
 					return
 				}
@@ -197,8 +195,7 @@ function writeMeta(track, tmpDir) {
 			{ attachments: [`${tmpDir}/image.jpeg`] },
 			(err) => {
 				if (err) {
-					console.trace("ffmetadata error: ", track.track.name, err)
-					reject()
+					reject("ffmetadata error: ", err)
 					return
 				}
 				resolve()

@@ -18,7 +18,7 @@
 						<span class="playlist-name">{{playlist.name}} ({{playlist.tracks.length}})</span>
 						<el-switch v-model="playlist.checked" @change="togglePlaylist(playlist)"/>
 					</div>
-					<el-progress :percentage="playlist.progress"></el-progress>
+					<el-progress :percentage="playlistProgress(playlist)"></el-progress>
 				</div>
 			</el-aside>
 
@@ -33,9 +33,6 @@
 							type="checkbox"
 							v-model="tracks[trackId].checked"
 							v-if="tracks[trackId].status === undefined"/>
-						<!-- <el-switch
-							v-model="tracks[trackId].checked"
-							v-if="tracks[trackId].status === undefined" @change="toggleTrack(trackId)"/> -->
 						<i class="el-icon-check" v-if="tracks[trackId].status === 'downloaded'"></i>
 						<i class="el-icon-loading" v-if="tracks[trackId].status === 'downloading'"></i>
 						<span class="track-name">{{tracks[trackId].track.name}} - {{tracks[trackId].track.artists[0].name}}</span>
@@ -64,7 +61,7 @@ import Spotify from "spotify-web-api-js"
 import { ipcRenderer } from "electron"
 
 const s = new Spotify()
-const TOKEN = "BQCxX8JrpPrUCQWf4hRhODLB6Psl_oTRIxtydRfVDyvdJJ1ysDHp_0lnKc53SvMes58A7WLNW1X0TqE-5sQCelTGWi6ujsgol1QvzYjdQ11xs_x1Tbo6Ob0CMaSaT13Nh46i8Xz3Yy4FJNZGD2OX2e28WsjpmmkxfBcrD-H9oGWlOQ1WrgQ2loxdTyYqwsSc6EvFyHLsRA"
+const TOKEN = "BQDXmw3WP78XkTHelZdRAcJpcQaeLf9jDLtUKxjkpQEHSdqpl328qB1Als9lic-OYW7iJGlH8RtNB4iKqjacdXrM94tE2rW4yuHymk8tidYiqu_-0q4GL72H-x-UPS-bRFfh3IHFIywu3Jko3MZz1a0CrpM6YXQt21c4Ljj1LQ4FQAqgv16uw2d3o45X9kWsY5Vu-ajjIQ"
 s.setAccessToken(TOKEN)
 
 
@@ -85,12 +82,11 @@ export default {
 		ipcRenderer.on("track-info", this.onTrackInfoEvent)
 		this.user = await s.getMe()
 		const playlists = (await s.getUserPlaylists()).items
+		playlists.forEach(this.loadPlaylist)
 		playlists.forEach((playlist) => this.playlists[playlist.id] = playlist)
-		Object.keys(this.playlists).forEach(this.loadPlaylist)
 	},
 	methods: {
-		loadPlaylist: async function(playlistId) {
-			const playlist = this.playlists[playlistId]
+		loadPlaylist: async function(playlist) {
 			playlist.checked = this.allCheck
 			let result = await s.getPlaylistTracks(this.user.id, playlist.id)
 			let tracks = result.items
@@ -132,25 +128,11 @@ export default {
 			}
 			this.$forceUpdate()
 		},
-		computePlaylistProgress: function(playlist) {
-			const totalProgress = playlist.tracks
-				.map((trackId) => this.tracks[trackId])
-				.reduce(
-					((totalProgress, track) => totalProgress + (track.progress || 0)),
-					0
-				)
-			playlist.progress = Math.round(totalProgress/ playlist.tracks.length)
-		},
-		toggleTrack: function(trackId) {
-			console.log(this.tracks[trackId].checked)
-		},
 		togglePlaylist: function(playlist) {
-			console.log("togglePlaylist")
 			if (!Array.isArray(playlist.tracks)) return
 			playlist.tracks.forEach((trackId) => this.tracks[trackId].checked = playlist.checked)
 		},
 		toggleAll: function() {
-			console.log("toggleAll")
 			for (let playlistId in this.playlists) {
 				const playlist = this.playlists[playlistId]
 				playlist.checked = this.allCheck
@@ -163,15 +145,24 @@ export default {
 			switch (type) {
 			case "progress":
 				track.progress = payload
-				this.computePlaylistProgress(playlist)
 				break
 			case "done":
 				track.status = "downloaded"
 				this.activeTasks--
 			}
 			this.$forceUpdate()
-		}
-	}
+		},
+		playlistProgress: function(playlist) {
+			if (!Array.isArray(playlist.tracks)) return 0
+			const totalProgress = playlist.tracks
+			.map((trackId) => this.tracks[trackId])
+			.reduce(
+				((totalProgress, track) => totalProgress + (track.progress || 0)),
+				0
+			)
+			return Math.round(totalProgress/ playlist.tracks.length)
+		},
+	},
 }
 
 </script>
