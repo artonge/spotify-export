@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "electron": "^1.7.10",
+    "electron-oauth2": "^3.0.0",
     "element-ui": "^2.0.11",
     "eslint-config-recommended": "^2.0.0",
     "ffmetadata": "^1.4.0",
@@ -22,6 +23,8 @@
     "request": "^2.83.0",
     "spotify-web-api-js": "^0.23.0",
     "vue": "^2.5.2",
+    "vue-router": "^3.0.1",
+    "vuex": "^3.0.1",
     "youtube-search": "^1.0.10",
     "ytdl-core": "^0.18.7"
   },
