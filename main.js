@@ -7,8 +7,10 @@ const path = require("path")
 const url = require("url")
 
 let win
+let directory = "./out"
 
 function createWindow () {
+	// TODO - remove for prod
 	BrowserWindow.addDevToolsExtension("/home/louis/.config/chromium/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/4.1.1_0")
 
 	win = new BrowserWindow({width: 800, height: 600})
@@ -19,6 +21,7 @@ function createWindow () {
 		slashes: true
 	}))
 
+	// TODO - remove for prod
 	win.webContents.openDevTools()
 
 	win.on("closed", () => {
@@ -44,5 +47,10 @@ ipcMain.on("connectToSpotify", async (event) => {
 	event.sender.send("tokens", await connectToSpotify())
 })
 
+ipcMain.on("get-track", (event, track) => {
+	downloadTrack(event, directory, track)
+})
 
-ipcMain.on("get-track", downloadTrack)
+ipcMain.on("updatedDirectory", (event, newDirectory) => {
+	directory = newDirectory
+})

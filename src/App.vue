@@ -1,7 +1,16 @@
 <template>
 	<el-container id="global-container" direction="vertical">
+		<el-header>
+			<h3>spotify-export</h3>
+			<span>Choose the destination folder:</span>
+			<input
+				type="file"
+				webkitdirectory
+				@change="updatedDirectory"
+			/>
+		</el-header>
 
-		<router-view></router-view>
+		<tracks-list/>
 
 		<el-footer>
 			<el-button
@@ -17,10 +26,21 @@
 </template>
 
 <script>
-import { mapActions } from "vuex"
+import { mapState, mapMutations, mapActions } from "vuex"
+
+import TracksList from "./TracksList"
 
 export default {
+	components: { TracksList },
+	computed: {
+		...mapState([
+			"directory"
+		])
+	},
 	methods: {
+		...mapMutations([
+			"updatedDirectory",
+		]),
 		...mapActions([
 			"startExport",
 		]),
@@ -37,6 +57,18 @@ html, body, #app {
 
 * {
 	font-family: "Cantarell" !important;
+}
+
+header {
+	display: flex;
+	align-items: center;
+	background: grey;
+}
+
+header span {
+	flex-grow: 1;
+	text-align: right;
+	margin-right: 20px;
 }
 
 #global-container {

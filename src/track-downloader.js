@@ -12,17 +12,17 @@ let QUEUE = []
 let activesTasks = 0
 
 
-module.exports = function downloadTrack(event, track) {
-	QUEUE.push([event, track])
+module.exports = function downloadTrack(event, directory, track) {
+	QUEUE.push([event, directory, track])
 	runTask()
 }
 
 async function runTask() {
 	if (QUEUE.length > 0 && activesTasks < 7) {
 		activesTasks++
-		const [event, track] = QUEUE.shift()
+		const [event, directory, track] = QUEUE.shift()
 		try {
-			await getTrack(event, track)
+			await getTrack(event, directory, track)
 			event.sender.send("track-info", track.track.id, "done")
 		} catch (e) {
 			console.error("Error", track.track.name, e)
@@ -34,11 +34,11 @@ async function runTask() {
 }
 
 
-function getTrack(event, track) {
+function getTrack(event, directory, track) {
 	return new Promise(async (resolve, reject) => {
 		try {
 			const tmpDir = fs.mkdtempSync(`${os.tmpdir()}/spotify-export-`)
-			const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
+			const finalDir = `${directory}/${track.track.artists[0].name}/${track.track.album.name}`
 
 			// Check if song is allready downloaded
 			if (fs.existsSync(`${finalDir}/${track.track.name}.mp3`)) {
@@ -65,7 +65,7 @@ function getTrack(event, track) {
 			await writeMeta(track, tmpDir)
 
 			// Copy the song in the final directory
-			await copySong(track, tmpDir)
+			await copySong(track, directory, tmpDir)
 
 			// Clear the tmp dir
 			cleanTmpDir(tmpDir)
@@ -152,8 +152,8 @@ function writeMeta(track, tmpDir) {
 }
 
 
-function copySong(track, tmpDir) {
-	const finalDir = `out/${track.track.artists[0].name}/${track.track.album.name}`
+function copySong(track, directory, tmpDir) {
+	const finalDir = `${directory}/${track.track.artists[0].name}/${track.track.album.name}`
 
 	return new Promise((resolve, reject) => {
 		mkdirp.sync(finalDir)

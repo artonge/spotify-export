@@ -2,19 +2,18 @@ import { ipcRenderer } from "electron"
 import Spotify from "spotify-web-api-js"
 
 import Vue from "vue"
-import VueRouter from "vue-router"
+// import VueRouter from "vue-router"
 import Vuex from "vuex"
 
 import ElementUI from "element-ui"
 import "element-ui/lib/theme-chalk/index.css"
 
 import App from "./App"
-import Login from "./Login"
-import TracksList from "./TracksList"
 
+// TODO - remove for prod
 Vue.config.productionTip = false
 
-Vue.use(VueRouter)
+// Vue.use(VueRouter)
 Vue.use(Vuex)
 
 Vue.use(ElementUI)
@@ -24,13 +23,13 @@ new Vue({
 	el: "#app",
 	template: "<App/>",
 	components: { App },
-	router: new VueRouter({
-		routes: [
-			{ path: "/", redirect: "/login" },
-			{ path: "/trackslist", component: TracksList },
-			{ path: "/login", component: Login },
-		]
-	}),
+	// router: new VueRouter({
+	// 	routes: [
+	// 		{ path: "/", redirect: "/login" },
+	// 		{ path: "/trackslist", component: TracksList },
+	// 		{ path: "/login", component: Login },
+	// 	]
+	// }),
 	store: new Vuex.Store({
 		strict: false,
 		state: {
@@ -40,6 +39,7 @@ new Vue({
 			user: {},
 			binded: false,
 			spotifyApi: new Spotify(),
+			directory: "Music",
 		},
 		getters: {
 			getPlaylistProgress: (state) => (playlistId) => {
@@ -148,6 +148,10 @@ new Vue({
 					...update,
 				}
 			},
+			updatedDirectory(state, event) {
+				state.directory = event.target.files[0].path
+				ipcRenderer.send("updatedDirectory", state.directory)
+			}
 		},
 		actions: {
 			async getPlaylists({commit, state}) {
