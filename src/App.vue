@@ -6,7 +6,7 @@
 			<input
 				type="file"
 				webkitdirectory
-				@change="updatedDirectory"
+				@change="updateDirectory"
 			/>
 		</el-header>
 
@@ -26,7 +26,7 @@
 </template>
 
 <script>
-import { mapState, mapMutations, mapActions } from "vuex"
+import { mapState, mapActions } from "vuex"
 
 import TracksList from "./TracksList"
 
@@ -38,10 +38,8 @@ export default {
 		])
 	},
 	methods: {
-		...mapMutations([
-			"updatedDirectory",
-		]),
 		...mapActions([
+			"updateDirectory",
 			"startExport",
 		]),
 	}

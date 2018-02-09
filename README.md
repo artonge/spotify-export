@@ -3,7 +3,7 @@
 Export your music from your spotify playlists !
 
 ## How it works
-After retrieving you playlists with the spotify API, it downloads the songs from youtube. The audio quality is therefore not the best.
+After retrieving you playlists with the spotify API, it downloads the songs from youtube. The audio quality is therefore not the best. But the songs are taged with spotify information and classed by folder folowing this standard: `artist/album/track`
 
 ![Main interface](/img/main.png)
 

@@ -23,19 +23,13 @@ new Vue({
 	el: "#app",
 	template: "<App/>",
 	components: { App },
-	// router: new VueRouter({
-	// 	routes: [
-	// 		{ path: "/", redirect: "/login" },
-	// 		{ path: "/trackslist", component: TracksList },
-	// 		{ path: "/login", component: Login },
-	// 	]
-	// }),
 	store: new Vuex.Store({
 		strict: false,
 		state: {
 			playlists: {},
 			tracks: {},
 			tokens: {},
+			artists: {},
 			user: {},
 			binded: false,
 			spotifyApi: new Spotify(),
@@ -87,6 +81,12 @@ new Vue({
 							normalizePlaylists[playlist.id] = playlist
 							return normalizePlaylists
 						}), {}),
+				}
+			},
+			addArtist(state, artist) {
+				state.artists = {
+					...state.artists,
+					[artist.id]: artist,
 				}
 			},
 			addTracks(state, tracks) {
@@ -148,12 +148,19 @@ new Vue({
 					...update,
 				}
 			},
-			updatedDirectory(state, event) {
+			updateDirectory(state, event) {
 				state.directory = event.target.files[0].path
-				ipcRenderer.send("updatedDirectory", state.directory)
-			}
+				ipcRenderer.send("updateDirectory", state.directory)
+			},
 		},
 		actions: {
+			updateDirectory({commit, state}, event) {
+				commit("updateDirectory", event)
+				for (let trackId in state.tracks) {
+					const track = state.tracks[trackId]
+					ipcRenderer.send("checkTrack", track)
+				}
+			},
 			async getPlaylists({commit, state}) {
 				const playlists = (await state.spotifyApi.getUserPlaylists()).items
 				commit("addPlaylists", playlists)
@@ -171,10 +178,28 @@ new Vue({
 					tracks = tracks.concat(result.items)
 				}
 				tracks = tracks.filter((track) => !track.is_local)
+				for (let track of tracks) {
+					ipcRenderer.send("checkTrack", track)
+				}
 				commit("addTrackToPlaylist", {playlistId, tracks})
 				commit("addTracks", tracks)
 			},
 			async getUser({commit, state}) {
+				// Bind the "track-info" event to have feedback on progress and finish
+				// If it's already done, pass this step
+				if (!state.binded) {
+					ipcRenderer.on("track-info", (event, trackId, type, payload) => {
+						switch (type) {
+						case "progress":
+							commit("updateTrack", {trackId, update: {progress: payload}})
+							break
+						case "done":
+							commit("updateTrack", {trackId, update: {status: "downloaded"}})
+							break
+						}
+					})
+					commit("setBinded")
+				}
 				return new Promise((resolve, reject) => {
 					try {
 						ipcRenderer.send("connectToSpotify")
@@ -190,24 +215,11 @@ new Vue({
 				})
 			},
 			startExport({commit, state}) {
-				if (!state.binded) {
-					ipcRenderer.on("track-info", (event, trackId, type, payload) => {
-						switch (type) {
-						case "progress":
-							commit("updateTrack", {trackId, update: {progress: payload}})
-							break
-						case "done":
-							commit("updateTrack", {trackId, update: {status: "downloaded"}})
-							break
-						}
-					})
-					commit("setBinded")
-				}
-
+				// Get all checked tracks
 				for (let trackId in state.tracks) {
 					let track = state.tracks[trackId]
 
-					if (!track.checked) {
+					if (!track.checked || track.status === "downloaded") {
 						continue
 					}
 
@@ -219,7 +231,21 @@ new Vue({
 						}
 					})
 
-					ipcRenderer.send("get-track", track)
+					ipcRenderer.send("getTrack", track, false)
+				}
+
+				// Write m3u8 file for all checked playlists
+				for (let playlistId in state.playlists) {
+					let playlist = state.playlists[playlistId]
+					if (!playlist.checked) {
+						continue
+					}
+
+					ipcRenderer.send(
+						"savePlaylist",
+						playlist.name,
+						playlist.tracks.map((trackId) => state.tracks[trackId])
+					)
 				}
 			},
 		}

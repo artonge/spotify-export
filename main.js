@@ -1,5 +1,7 @@
 const connectToSpotify = require("./src/spotify-connect.js")
 const downloadTrack = require("./src/track-downloader.js")
+const savePlaylist = require("./src/playlist-saver.js")
+const fs = require("fs");
 
 const { app, BrowserWindow, ipcMain } = require("electron")
 
@@ -7,11 +9,11 @@ const path = require("path")
 const url = require("url")
 
 let win
-let directory = "./out"
+let directory = "/tpm"
 
 function createWindow () {
 	// TODO - remove for prod
-	BrowserWindow.addDevToolsExtension("/home/louis/.config/chromium/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/4.1.1_0")
+	BrowserWindow.addDevToolsExtension("/home/louis/.config/chromium/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/4.1.3_0")
 
 	win = new BrowserWindow({width: 800, height: 600})
 
@@ -47,10 +49,22 @@ ipcMain.on("connectToSpotify", async (event) => {
 	event.sender.send("tokens", await connectToSpotify())
 })
 
-ipcMain.on("get-track", (event, track) => {
-	downloadTrack(event, directory, track)
+ipcMain.on("checkTrack", (event, track) => {
+	const finalPath = `${directory}/${track.track.artists[0].name}/${track.track.album.name}/${track.track.name}.mp3`
+
+	if (fs.existsSync(finalPath)) {
+		event.sender.send("track-info", track.track.id, "progress", 100)
+	}
 })
 
-ipcMain.on("updatedDirectory", (event, newDirectory) => {
+ipcMain.on("getTrack", (event, track, forceMetaUpdate) => {
+	downloadTrack(event, directory, track, forceMetaUpdate)
+})
+
+ipcMain.on("updateDirectory", (event, newDirectory) => {
 	directory = newDirectory
+})
+
+ipcMain.on("savePlaylist", (event, name, tracks) => {
+	savePlaylist(directory, name, tracks)
 })
