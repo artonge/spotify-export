@@ -39,9 +39,13 @@ export default {
 	},
 	methods: {
 		...mapActions([
+			"init",
 			"updateDirectory",
 			"startExport",
 		]),
+	},
+	created() {
+		this.init()
 	}
 }
 

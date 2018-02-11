@@ -14,7 +14,7 @@
 
 			<el-switch
 				v-model="inner_checked"
-				@change="togglePlaylist({playlistId: playlist.id})"
+				@change="togglePlaylist({playlistId: playlist.id, update: {checked: !playlist.checked}})"
 			/>
 		</div>
 
@@ -23,7 +23,7 @@
 </template>
 
 <script>
-import { mapMutations, mapGetters } from "vuex"
+import { mapActions, mapGetters } from "vuex"
 
 export default {
 	props: ["playlist"],
@@ -36,7 +36,7 @@ export default {
 		}
 	},
 	methods: {
-		...mapMutations([
+		...mapActions([
 			"togglePlaylist",
 		]),
 		click: function() {

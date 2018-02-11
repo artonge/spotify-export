@@ -3,7 +3,7 @@
 		<div class="track-top-container">
 			<el-switch
 				v-model="inner_checked"
-				@change="toggleTrack(track.track.id)"
+				@change="updateTrack({trackId: track.track.id, update: {checked: !track.checked}})"
 				v-if="track.status === undefined"
 			/>
 			<i class="el-icon-check" v-if="track.status === 'downloaded'"></i>
@@ -34,7 +34,7 @@ export default {
 	},
 	methods: {
 		...mapMutations([
-			"toggleTrack",
+			"updateTrack",
 		]),
 	},
 }

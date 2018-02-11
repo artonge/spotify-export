@@ -9,22 +9,21 @@ const path = require("path")
 const url = require("url")
 
 let win
-let directory = "/tpm"
+let directory = "~/Music"
 
 function createWindow () {
-	// TODO - remove for prod
-	BrowserWindow.addDevToolsExtension("/home/louis/.config/chromium/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/4.1.3_0")
-
 	win = new BrowserWindow({width: 800, height: 600})
 
 	win.loadURL(url.format({
-		pathname: path.join(__dirname, "dist/index.html"),
+		pathname: path.join(__dirname, "../dist/index.html"),
 		protocol: "file:",
 		slashes: true
 	}))
 
-	// TODO - remove for prod
-	win.webContents.openDevTools()
+	if (process.env.NODE_ENV !== "production") {
+		BrowserWindow.addDevToolsExtension("/home/louis/.config/chromium/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/4.1.3_0")
+		win.webContents.openDevTools()
+	}
 
 	win.on("closed", () => {
 		win = null
@@ -45,26 +44,26 @@ app.on("activate", () => {
 	}
 })
 
-ipcMain.on("connectToSpotify", async (event) => {
-	event.sender.send("tokens", await connectToSpotify())
+ipcMain.on("FETCH_SPOTIFY_TOKEN", async (event) => {
+	event.sender.send("UPDATE_SPOTIFY_TOKEN", await connectToSpotify())
 })
 
-ipcMain.on("checkTrack", (event, track) => {
+ipcMain.on("CHECK_TRACK_PRESENCE_ON_DISK", (event, track) => {
 	const finalPath = `${directory}/${track.track.artists[0].name}/${track.track.album.name}/${track.track.name}.mp3`
 
 	if (fs.existsSync(finalPath)) {
-		event.sender.send("track-info", track.track.id, "progress", 100)
+		event.sender.send("UPDATE_TRACK", track.track.id, "progress", 100)
 	}
 })
 
-ipcMain.on("getTrack", (event, track, forceMetaUpdate) => {
+ipcMain.on("FETCH_TRACK", (event, track, forceMetaUpdate) => {
 	downloadTrack(event, directory, track, forceMetaUpdate)
 })
 
-ipcMain.on("updateDirectory", (event, newDirectory) => {
+ipcMain.on("UPDATE_DIRECTORY", (event, newDirectory) => {
 	directory = newDirectory
 })
 
-ipcMain.on("savePlaylist", (event, name, tracks) => {
+ipcMain.on("WRITE_PLAYLIST_ON_DISK", (event, name, tracks) => {
 	savePlaylist(directory, name, tracks)
 })

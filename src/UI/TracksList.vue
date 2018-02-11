@@ -26,10 +26,10 @@
 </template>
 
 <script>
-import { mapState, mapMutations } from "vuex"
+import { mapState, mapActions } from "vuex"
 
-import PlaylistComponent from "./components/PlaylistComponent"
-import TrackComponent from "./components/TrackComponent"
+import PlaylistComponent from "./playlists/PlaylistComponent"
+import TrackComponent from "./tracks/TrackComponent"
 
 export default {
 	components: {
@@ -43,19 +43,13 @@ export default {
 		}
 	},
 	computed: {
-		...mapState([
-			"playlists",
-			"tracks",
-			"user",
-		])
-	},
-	async created() {
-		await this.$store.dispatch("getUser")
-		await this.$store.dispatch("getPlaylists")
-		await this.$store.dispatch("getTracksForPlaylists")
+		...mapState({
+			playlists: state => state.playlists.items,
+			tracks: state => state.tracks.items,
+		}),
 	},
 	methods: {
-		...mapMutations([
+		...mapActions([
 			"togglePlaylist",
 		]),
 		selectPlaylist: function(playlistId) {
@@ -63,8 +57,7 @@ export default {
 		},
 		toggleAll: function() {
 			Object.keys(this.playlists)
-				.map((playlistId) => ({playlistId, checked: this.allCheck}))
-				.forEach(this.togglePlaylist)
+				.forEach((playlistId) => this.togglePlaylist({playlistId, update: {checked: this.allCheck}}))
 		},
 	},
 }
