@@ -3,7 +3,7 @@ import Spotify from "spotify-web-api-js"
 
 export default {
 	state: {
-		directory: "~/Music",
+		directory: "",
 		user: {},
 		connexions: {
 			spotify: {
@@ -31,7 +31,7 @@ export default {
 		},
 	},
 	actions: {
-		init({commit, dispatch, state}) {
+		init({commit}) {
 			// Bind the "track-info" event to have feedback on progress and finish
 			ipcRenderer.on("UPDATE_TRACK", (event, trackId, type, payload) => {
 				switch (type) {
@@ -42,12 +42,6 @@ export default {
 					commit("updateTrack", {trackId, update: {status: "downloaded"}})
 					break
 				}
-			})
-			ipcRenderer.send("FETCH_SPOTIFY_TOKEN")
-			ipcRenderer.once("UPDATE_SPOTIFY_TOKEN", async (event, tokens) => {
-				commit("updateConnexions", { spotify: tokens })
-				commit("updateUser", await state.connexions.spotify.client.getMe())
-				dispatch("fetchPlaylists")
 			})
 		},
 		updateDirectory({commit, state}, event) {

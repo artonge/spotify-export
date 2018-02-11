@@ -1,22 +1,62 @@
 <template>
 	<el-container id="global-container" direction="vertical">
 		<el-header>
-			<h3>spotify-export</h3>
-			<span>Choose the destination folder:</span>
-			<input
-				type="file"
-				webkitdirectory
-				@change="updateDirectory"
-			/>
+			<div id="global-checker">
+				TOGGLE ALL <el-switch v-model="allCheck" @change="toggleAll()"/>
+			</div>
+			<el-select
+				id="service-select"
+				v-model="service"
+				clearable
+				placeholder="Select the service..."
+			>
+				<el-option
+					v-for="service in services"
+					:key="service"
+					:label="service"
+					:value="service">
+				</el-option>
+			</el-select>
+			<el-autocomplete
+				id="search-input"
+				v-model="query"
+				:fetch-suggestions="queryService"
+				placeholder="Search playlist..."
+				@select="selectPlaylist"
+			></el-autocomplete>
+			<el-button
+				type="primary"
+				icon="el-icon-download"
+				@click="fetchSpotifyPlaylists()"
+			>
+				Get my playlists from spotify
+			</el-button>
 		</el-header>
 
 		<tracks-list/>
 
 		<el-footer>
+			<el-checkbox v-model="savePlaylist" label="Create playlists file (.m3u)" border></el-checkbox>
+			<input
+				type="file"
+				hidden
+				id="directory"
+				webkitdirectory
+				@change="updateDirectory"
+			/>
+			<label
+				for="directory"
+				class="el-button el-button--primary"
+			>
+				<i class="el-icon-edit"></i>
+				{{directory || "Choose the destination folder"}}
+			</label>
+
 			<el-button
-				type="primary"
+				type="success"
 				icon="el-icon-download"
-				@click="startExport()"
+				@click="startExportt()"
+				:disabled="directory === ''"
 			>
 				Start export !
 			</el-button>
@@ -32,21 +72,48 @@ import TracksList from "./TracksList"
 
 export default {
 	components: { TracksList },
+	created() {
+		this.init()
+	},
+	data() {
+		return {
+			query: "",
+			service: "spotify",
+			services: ["spotify"],
+			savePlaylist: true,
+			allCheck: true,
+		}
+	},
 	computed: {
-		...mapState([
-			"directory"
-		])
+		...mapState({
+			directory: state => state.main.directory,
+			playlists: state => state.playlists.items,
+			tracks: state => state.tracks.items,
+		}),
 	},
 	methods: {
 		...mapActions([
 			"init",
 			"updateDirectory",
 			"startExport",
+			"fetchSpotifyPlaylists",
+			"togglePlaylist",
 		]),
+		startExportt() {
+			debugger
+			this.startExport()
+		},
+		queryService() {
+
+		},
+		selectPlaylist() {
+
+		},
+		toggleAll: function() {
+			Object.keys(this.playlists)
+				.forEach((playlistId) => this.togglePlaylist({playlistId, update: {checked: this.allCheck}}))
+		},
 	},
-	created() {
-		this.init()
-	}
 }
 
 </script>
@@ -61,32 +128,36 @@ html, body, #app {
 	font-family: "Cantarell" !important;
 }
 
-header {
-	display: flex;
-	align-items: center;
-	background: grey;
-}
-
-header span {
-	flex-grow: 1;
-	text-align: right;
-	margin-right: 20px;
-}
-
 #global-container {
 	height: 100%;
 }
 
-footer {
+header {
 	display: flex;
-	justify-content: flex-end;
-	align-content: center;
 	align-items: center;
-	height: 60px;
-	background: grey;
+	border-bottom: 1px solid black;
 }
 
-button {
-	width: 100%;
+header #global-checker {
+	width: 160px;
+	margin-right: 10px;
+}
+
+header #service-select {
+	width: 120px;
+}
+
+header #search-input {
+	flex-grow: 1;
+	margin: 0 10px;
+}
+
+footer {
+	display: flex;
+	align-content: center;
+	align-items: center;
+	justify-content: space-around;
+	height: 60px;
+	border-top: 1px solid black;
 }
 </style>

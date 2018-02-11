@@ -2,9 +2,6 @@
 	<el-container id="content-container" direction="horizontal">
 
 		<el-aside width="300px" style="height: 100%;">
-			<div id="global-checker">
-				TOGGLE ALL <el-switch v-model="allCheck" @change="toggleAll()"/>
-			</div>
 			<playlist
 				v-for="(playlist, playlistId) in playlists"
 				:key="playlist.id"
@@ -26,7 +23,7 @@
 </template>
 
 <script>
-import { mapState, mapActions } from "vuex"
+import { mapState } from "vuex"
 
 import PlaylistComponent from "./playlists/PlaylistComponent"
 import TrackComponent from "./tracks/TrackComponent"
@@ -39,7 +36,6 @@ export default {
 	data() {
 		return {
 			selectedPlaylistId: undefined,
-			allCheck: true,
 		}
 	},
 	computed: {
@@ -49,15 +45,8 @@ export default {
 		}),
 	},
 	methods: {
-		...mapActions([
-			"togglePlaylist",
-		]),
 		selectPlaylist: function(playlistId) {
 			this.selectedPlaylistId = playlistId
-		},
-		toggleAll: function() {
-			Object.keys(this.playlists)
-				.forEach((playlistId) => this.togglePlaylist({playlistId, update: {checked: this.allCheck}}))
 		},
 	},
 }

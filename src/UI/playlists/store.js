@@ -39,12 +39,22 @@ export default {
 					.filter((trackId, i, trackIds) => i === 0 || trackIds[i-1] !== trackId)
 			}})
 		},
-		async fetchPlaylists({commit, dispatch, state, rootState}) {
-			const playlists = (await rootState.main.connexions.spotify.client.getUserPlaylists()).items
-			commit("addPlaylists", playlists)
-			for (let playlistId in state.items) {
-				dispatch("getTracksForPlaylist", playlistId)
-			}
+		async fetchSpotifyPlaylists({commit, dispatch, rootState}) {
+			ipcRenderer.send("FETCH_SPOTIFY_TOKEN")
+			ipcRenderer.once("UPDATE_SPOTIFY_TOKEN", async (event, tokens) => {
+				commit("updateConnexions", { spotify: tokens })
+
+				commit("updateUser", await rootState.main.connexions.spotify.client.getMe())
+
+				const playlists = (await rootState.main.connexions.spotify.client.getUserPlaylists()).items
+
+				commit("addPlaylists", playlists)
+
+				for (let playlist of playlists) {
+					dispatch("getTracksForPlaylist", playlist.id)
+				}
+			})
+
 		},
 		async getTracksForPlaylist({commit, dispatch, state, rootState}, playlistId) {
 			let result = (await rootState.main.connexions.spotify.client.getPlaylistTracks(rootState.main.user.id, playlistId))
