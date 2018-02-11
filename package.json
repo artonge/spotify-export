@@ -4,7 +4,7 @@
   "description": "Export your music from spotify",
   "author": "artonge <louis@chmn.me>",
   "private": true,
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
     "dev": "webpack-dev-server --inline --progress --config build/webpack.dev.conf.js",
     "start": "npm run dev",

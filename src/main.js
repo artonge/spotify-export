@@ -1,7 +1,7 @@
-const connectToSpotify = require("./src/spotify-connect.js")
-const downloadTrack = require("./src/track-downloader.js")
-const savePlaylist = require("./src/playlist-saver.js")
-const fs = require("fs");
+const connectToSpotify = require("./spotify-connect.js")
+const downloadTrack = require("./track-downloader.js")
+const savePlaylist = require("./playlist-saver.js")
+const fs = require("fs")
 
 const { app, BrowserWindow, ipcMain } = require("electron")
 
