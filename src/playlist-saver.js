@@ -2,11 +2,11 @@ const fs = require("fs")
 
 module.exports = (directory, name, tracks) => {
 	// If playlist file already exist, return
-	if (fs.existsSync(`${directory}/${name}.m3u8`)) {
+	if (fs.existsSync(`${directory}/${name}.m3u`)) {
 		return
 	}
 
-	// Build m3u8 file
+	// Build m3u file
 	let buffer = "#EXTM3U\n"
 
 	for (let track of tracks) {
@@ -15,5 +15,5 @@ module.exports = (directory, name, tracks) => {
 	}
 
 	// Write file to disk
-	fs.writeFileSync(`${directory}/${name}.m3u8`, buffer)
+	fs.writeFileSync(`${directory}/${name}.m3u`, buffer)
 }
