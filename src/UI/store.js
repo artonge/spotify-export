@@ -32,7 +32,7 @@ export default {
 	},
 	actions: {
 		init({commit}) {
-			// Bind the "track-info" event to have feedback on progress and finish
+			// Bind the "UPDATE_TRACK" event to have feedback on progress and finish
 			ipcRenderer.on("UPDATE_TRACK", (event, trackId, type, payload) => {
 				switch (type) {
 				case "progress":
@@ -48,10 +48,10 @@ export default {
 			ipcRenderer.send("UPDATE_DIRECTORY", event.target.files[0].path)
 			commit("updateDirectory", event)
 		},
-		startExport({commit, state}) {
+		startExport({commit, rootState}) {
 			// Get all checked tracks
-			for (let trackId in state.tracks) {
-				let track = state.tracks[trackId]
+			for (let trackId in rootState.tracks.items) {
+				let track = rootState.tracks.items[trackId]
 
 				if (!track.checked || track.status === "downloaded") {
 					continue
@@ -69,8 +69,8 @@ export default {
 			}
 
 			// Write m3u8 file for all checked playlists
-			for (let playlistId in state.playlists) {
-				let playlist = state.playlists[playlistId]
+			for (let playlistId in rootState.playlists.items) {
+				let playlist = rootState.playlists.items[playlistId]
 				if (!playlist.checked) {
 					continue
 				}
@@ -78,7 +78,7 @@ export default {
 				ipcRenderer.send(
 					"WRITE_PLAYLIST_ON_DISK",
 					playlist.name,
-					playlist.tracks.map((trackId) => state.tracks[trackId])
+					playlist.tracks.map((trackId) => rootState.tracks.items[trackId])
 				)
 			}
 		},

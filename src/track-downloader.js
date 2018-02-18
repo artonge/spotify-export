@@ -22,10 +22,10 @@ async function runTask() {
 		const [event, directory, track, forceMetaUpdate] = QUEUE.shift()
 		try {
 			await getTrack(event, directory, track, forceMetaUpdate)
-			event.sender.send("track-info", track.track.id, "done")
+			event.sender.send("UPDATE_TRACK", track.track.id, "done")
 		} catch (e) {
 			console.error("Error", track.track.name, e)
-			event.sender.send("track-info", track.track.id, "error")
+			event.sender.send("UPDATE_TRACK", track.track.id, "error")
 		}
 		activesTasks--
 		runTask()
@@ -42,7 +42,7 @@ function getTrack(event, directory, track, forceMetaUpdate) {
 			const trackIsPresent = fs.existsSync(`${finalDir}/${track.track.name}.mp3`)
 
 			if (trackIsPresent && !forceMetaUpdate) {
-				event.sender.send("track-info", track.track.id, "progress", 100)
+				event.sender.send("UPDATE_TRACK", track.track.id, "progress", 100)
 				resolve()
 				return
 			}
@@ -60,7 +60,7 @@ function getTrack(event, directory, track, forceMetaUpdate) {
 				// Download the first result
 				filesPromises.push(downloadSong(songList[0].link, `${finalDir}/${track.track.name}.mp3`, (chunkSize, downloadedSize, totalSize) => {
 					event.sender.send(
-						"track-info", track.track.id, "progress",
+						"UPDATE_TRACK", track.track.id, "progress",
 						Math.round((downloadedSize/totalSize)*100)
 					)
 				}))
@@ -77,7 +77,9 @@ function getTrack(event, directory, track, forceMetaUpdate) {
 			await writeMeta(track, finalDir, noImage)
 
 			// Clear the tmp dir
-			fs.unlinkSync(`${finalDir}/${track.track.name}.jpeg`)
+			if (!noImage) {
+				fs.unlinkSync(`${finalDir}/${track.track.name}.jpeg`)
+			}
 
 			resolve()
 		} catch (e) {
