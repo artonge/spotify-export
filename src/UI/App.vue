@@ -55,7 +55,7 @@
 			<el-button
 				type="success"
 				icon="el-icon-download"
-				@click="startExportt()"
+				@click="startExport()"
 				:disabled="directory === ''"
 			>
 				Start export !
@@ -99,10 +99,6 @@ export default {
 			"fetchSpotifyPlaylists",
 			"togglePlaylist",
 		]),
-		startExportt() {
-			debugger
-			this.startExport()
-		},
 		queryService() {
 
 		},
