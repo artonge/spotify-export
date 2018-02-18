@@ -13,7 +13,7 @@ export default {
 							checked: true,
 							track: {
 								...track.track,
-								name: track.track.name.replace("/", "-"),
+								name: track.track.name.replace(/\//g, "-"),
 							},
 						}
 					})
